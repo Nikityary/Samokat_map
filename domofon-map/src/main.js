@@ -37,6 +37,8 @@ let recordForm = null;          // {mode:'add'} | {mode:'edit', entry}
 let countFormOpen = false;
 let showLeaders = false;
 let selectedLeader = null;
+let addressFormOpen = false;
+let kladr = {}; // улица -> номера домов из реестра КЛАДР
 let started = false;
 let realtimeChannel = null;
 let realtimeTimer = null;
@@ -155,6 +157,7 @@ function selectBuilding(id) {
   selectedLeader = null;
   recordForm = null;
   countFormOpen = false;
+  addressFormOpen = false;
   const info = buildingInfo(id);
   const list = entranceList(info);
   const withCode = list?.find((ent) => recordsFor(id, ent).length > 0);
@@ -170,6 +173,7 @@ function closeBuilding() {
   selectedEntrance = null;
   recordForm = null;
   countFormOpen = false;
+  addressFormOpen = false;
   highlightSelected();
   renderSidebar();
 }
@@ -356,21 +360,52 @@ function renderBuildingPanel() {
       <h2>${esc(info.address)}</h2>
       <button class="btn small" id="btn-edit-address" title="Уточнить адрес">✏️</button>
     </div>
+    <div id="address-slot"></div>
     <div class="chips" id="chips"></div>
     <div id="count-slot"></div>
     <div id="entrance-slot"></div>
   `;
 
   document.getElementById('btn-back').addEventListener('click', closeBuilding);
-  document.getElementById('btn-edit-address').addEventListener('click', async () => {
-    const next = prompt('Адрес дома:', info.address);
-    if (next === null || !next.trim() || next.trim() === info.address) return;
-    try {
-      await upsertBuilding({ id: info.id, address: next.trim(), lat: info.lat, lng: info.lng, entrances_count: info.count });
-      overrides.set(info.id, { ...(overrides.get(info.id) || {}), id: info.id, address: next.trim() });
-      refresh();
-    } catch (err) { alert('Не удалось сохранить адрес: ' + err.message); }
+  document.getElementById('btn-edit-address').addEventListener('click', () => {
+    addressFormOpen = true;
+    renderBuildingPanel();
   });
+
+  const $aslot = document.getElementById('address-slot');
+  if (addressFormOpen) {
+    const street = info.address.split(',')[0].trim();
+    const currentNum = info.address.split(',')[1]?.trim() ?? '';
+    const nums = kladr[street] || [];
+    $aslot.innerHTML = `
+      <form class="count-form" id="address-form">
+        <label>Улица: <b>${esc(street)}</b></label>
+        <label>Номер дома
+          <input name="num" list="kladr-nums" value="${esc(currentNum)}" placeholder="выберите из списка или введите" />
+        </label>
+        <datalist id="kladr-nums">${nums.map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
+        <div class="count-row">
+          <button type="submit" class="btn primary small">Сохранить</button>
+          <button type="button" class="btn small" id="address-cancel">Отмена</button>
+        </div>
+        <p class="hint">${nums.length ? `Реестр КЛАДР: ${nums.length} домов на этой улице — выберите точный номер.` : 'Для этой улицы списка КЛАДР нет — введите номер вручную.'}</p>
+      </form>`;
+    document.getElementById('address-cancel').addEventListener('click', () => {
+      addressFormOpen = false;
+      renderBuildingPanel();
+    });
+    document.getElementById('address-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const num = ev.target.num.value.trim();
+      const address = num ? `${street}, ${num}` : street;
+      try {
+        await upsertBuilding({ id: info.id, address, lat: info.lat, lng: info.lng, entrances_count: info.count });
+        overrides.set(info.id, { ...(overrides.get(info.id) || {}), id: info.id, address });
+        addressFormOpen = false;
+        refresh();
+      } catch (err) { alert('Не удалось сохранить адрес: ' + err.message); }
+    });
+  }
 
   const $chips = document.getElementById('chips');
   if (list) {
@@ -554,6 +589,7 @@ $search.addEventListener('input', () => {
   selectedEntrance = null;
   showLeaders = false;
   selectedLeader = null;
+  addressFormOpen = false;
   highlightSelected();
   renderSidebar();
 });
@@ -692,6 +728,12 @@ document.getElementById('btn-name').addEventListener('click', async () => {
 loadOsmBuildings()
   .then((idx) => { osm = idx; drawBuildings(); })
   .catch((err) => console.error(err));
+
+// Справочник номеров домов из реестра КЛАДР (для точного выбора адреса).
+fetch(import.meta.env.BASE_URL + 'kladr-addresses.json')
+  .then((r) => r.json())
+  .then((j) => { kladr = j; })
+  .catch(() => {});
 
 if (!isConfigured) {
   document.getElementById('setup-overlay').classList.remove('hidden');
