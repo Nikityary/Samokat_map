@@ -45,14 +45,11 @@ body {
 main { flex: 1; display: flex; min-height: 0; }
 #map { flex: 1; }
 
-/* Компактная обязательная приписка OSM (лицензия ODbL) */
-.leaflet-control-attribution {
-  font-size: 9px !important;
-  background: rgba(255, 255, 255, .55) !important;
-  color: #8a949c !important;
-  padding: 1px 5px !important;
+/* Авторство OSM (лицензия ODbL) — тихой строкой внизу, не плашкой на карте */
+.credit {
+  font-size: 10px; color: #9aa4ac; text-align: center;
+  padding: 2px 6px; background: var(--card); border-top: 1px solid #e3e8ec;
 }
-.leaflet-control-attribution a { color: #8a949c !important; }
 
 #sidebar {
   width: 320px; background: var(--card); border-left: 1px solid #e3e8ec;

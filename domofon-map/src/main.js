@@ -14,9 +14,8 @@ const DISTRICT_BOUNDS = L.latLngBounds(
   [56.126853, 40.470280]  // северо-восточный угол
 );
 
-const map = L.map('map');
-// Авторство OSM обязательно по лицензии ODbL — оставляем, но делаем компактным.
-map.attributionControl.setPrefix(false);
+// Плашку авторства убрали с карты (лицензия ODbL) — credit вынесен в footer страницы.
+const map = L.map('map', { attributionControl: false });
 
 // Подложка OSM-FR на данных OSM: чистый стиль без ключа и водяных знаков
 // (Carto Voyager требует API-ключ). Авторство OSM обязательно по ODbL.
