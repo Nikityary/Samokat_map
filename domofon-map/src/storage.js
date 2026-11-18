@@ -105,33 +105,12 @@ export async function upsertBuildings(rows) {
   if (error) throw error;
 }
 
-// ---------- Контакты сотрудников ----------
-
-export async function loadContacts() {
-  const { data, error } = await supabase.from('contacts').select('*');
-  if (error) throw error;
-  return data;
-}
-
-export async function saveContact(row) {
-  const { error } = await supabase
-    .from('contacts')
-    .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: 'id' });
-  if (error) throw error;
-}
-
-export async function deleteContact(id) {
-  const { error } = await supabase.from('contacts').delete().eq('id', id);
-  if (error) throw error;
-}
-
-// Подписка на изменения в реальном времени (записи, дома, контакты).
+// Подписка на изменения в реальном времени (записи и дома).
 export function subscribeToChanges(onChange) {
   return supabase
     .channel('db-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'entries' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'buildings' }, onChange)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts' }, onChange)
     .subscribe();
 }
 
