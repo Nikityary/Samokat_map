@@ -2,11 +2,13 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { loadEntries, addEntry, updateEntry, deleteEntry, saveEntries, genId } from './storage.js';
 
-// Центр — район Коммунар (Владимир)
-const COMMUNAR = [56.1195, 40.4187];
-const ZAKLAZMENSKEY = [56.1316, 40.4622];
+// Границы района: Коммунар и Заклязьменский (Владимир)
+const DISTRICT_BOUNDS = L.latLngBounds(
+  [56.098211, 40.421300], // юго-западный угол
+  [56.126853, 40.470280]  // северо-восточный угол
+);
 
-const map = L.map('map').setView(COMMUNAR, 13);
+const map = L.map('map');
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
@@ -253,10 +255,11 @@ document.getElementById('file-import').addEventListener('change', async (ev) => 
   ev.target.value = '';
 });
 
-// ---------- Стартовые границы района (подсказка) ----------
-L.rectangle(
-  [ [56.09, 40.37], [56.16, 40.50] ],
-  { color: '#00b3ff', weight: 1.5, dashArray: '6 6', fill: false, interactive: false }
-).addTo(map).bindTooltip('Коммунар и Заклязьменский', { sticky: true });
+// ---------- Границы района: Коммунар и Заклязьменский ----------
+L.rectangle(DISTRICT_BOUNDS, {
+  color: '#00b3ff', weight: 1.5, dashArray: '6 6', fill: false, interactive: false
+}).addTo(map).bindTooltip('Коммунар и Заклязьменский', { sticky: true });
+
+map.fitBounds(DISTRICT_BOUNDS, { padding: [10, 10] });
 
 render();
