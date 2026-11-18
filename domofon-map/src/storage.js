@@ -14,6 +14,7 @@ function fromRow(r) {
     note: r.note ?? '',
     stale: !!r.stale,
     author_name: r.author_name ?? '',
+    created_by: r.created_by ?? null,
     createdAt: r.created_at ? Date.parse(r.created_at) : 0,
     updatedAt: r.updated_at ? Date.parse(r.updated_at) : 0,
   };

@@ -43,8 +43,25 @@ const $sidebar = document.getElementById('sidebar');
 const $search = document.getElementById('search');
 const $userName = document.getElementById('user-name');
 let myName = '';
+let myId = '';
+let authorCounts = new Map(); // created_by -> число оставленных кодов (звёзды)
 
 // ----------Helpers ----------
+
+// Рейтинг: 1 звезда за каждый оставленный код.
+function recomputeAuthorCounts() {
+  authorCounts = new Map();
+  for (const e of entries) {
+    if (e.created_by) authorCounts.set(e.created_by, (authorCounts.get(e.created_by) || 0) + 1);
+  }
+}
+function stars(id) {
+  const n = authorCounts.get(id);
+  return n ? ' ⭐' + n : '';
+}
+function paintName() {
+  $userName.textContent = myName + stars(myId);
+}
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) =>
@@ -336,7 +353,7 @@ function renderBuildingPanel() {
     card.innerHTML = `
       <div class="record-code">🔑 ${esc(r.code || '—')}</div>
       ${r.note ? `<div class="record-note">${esc(r.note)}</div>` : ''}
-      <div class="record-meta">${r.author_name ? esc(r.author_name) : ''}${r.updatedAt ? (r.author_name ? ' · ' : '') + 'обновлено ' + fmtDate(r.updatedAt) : ''}${r.stale ? ' · ⚠️ требует проверки' : ''}</div>
+      <div class="record-meta">${r.author_name ? esc(r.author_name) + stars(r.created_by) : ''}${r.updatedAt ? (r.author_name ? ' · ' : '') + 'обновлено ' + fmtDate(r.updatedAt) : ''}${r.stale ? ' · ⚠️ требует проверки' : ''}</div>
       <div class="popup-actions">
         <button class="btn small" data-edit>Изменить</button>
         <button class="btn danger small" data-del>Удалить</button>
@@ -420,6 +437,8 @@ function renderRecordForm(info) {
 }
 
 function refresh() {
+  recomputeAuthorCounts();
+  paintName();
   renderBadges();
   renderSidebar();
 }
@@ -503,7 +522,8 @@ async function startApp(session) {
   started = true;
   hideAuth();
   myName = session.user.user_metadata?.display_name || session.user.email || '';
-  $userName.textContent = myName;
+  myId = session.user.id;
+  paintName();
   try {
     const [es, bs] = await Promise.all([loadEntries(), loadBuildings()]);
     entries = es;
@@ -529,6 +549,7 @@ function stopApp() {
   closeBuilding();
   $userName.textContent = '';
   myName = '';
+  myId = '';
   showAuth();
 }
 
@@ -545,7 +566,7 @@ document.getElementById('btn-name').addEventListener('click', async () => {
     const { data, error } = await supabase.auth.updateUser({ data: { display_name: name } });
     if (error) throw error;
     myName = data.user.user_metadata?.display_name || name;
-    $userName.textContent = myName;
+    paintName();
   } catch (err) {
     alert('Не удалось сохранить имя: ' + err.message);
   }
@@ -564,7 +585,8 @@ if (!isConfigured) {
     if (session) {
       if (event === 'USER_UPDATED') {
         myName = session.user.user_metadata?.display_name || session.user.email || '';
-        $userName.textContent = myName;
+        myId = session.user.id;
+        paintName();
       }
       startApp(session);
     } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
