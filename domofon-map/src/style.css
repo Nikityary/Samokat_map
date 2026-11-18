@@ -121,6 +121,9 @@ main { flex: 1; display: flex; min-height: 0; }
 .record.is-stale .record-code { color: #d98b12; }
 .record-note { font-size: .85rem; margin-top: .15rem; }
 .record-meta { font-size: .75rem; color: var(--muted); margin-top: .2rem; }
+.leader.me { background: #e6f7ff; border-color: var(--accent); }
+.leader .entry-main b { font-size: .95rem; }
+
 .record-form { background: #f2f8fc; border: 1px solid #d5e6f0; border-radius: 10px; padding: .7rem; margin-bottom: .5rem; }
 .record-form h3 { margin: 0 0 .3rem; font-size: .92rem; }
 #btn-add-record { width: 100%; margin-top: .3rem; }

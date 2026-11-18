@@ -35,6 +35,7 @@ let selectedBuilding = null;
 let selectedEntrance = null;
 let recordForm = null;          // {mode:'add'} | {mode:'edit', entry}
 let countFormOpen = false;
+let showLeaders = false;
 let started = false;
 let realtimeChannel = null;
 let realtimeTimer = null;
@@ -149,6 +150,7 @@ function renderBadges() {
 
 function selectBuilding(id) {
   selectedBuilding = id;
+  showLeaders = false;
   recordForm = null;
   countFormOpen = false;
   const info = buildingInfo(id);
@@ -173,8 +175,46 @@ function closeBuilding() {
 // ---------- Боковая панель ----------
 
 function renderSidebar() {
-  if (selectedBuilding) renderBuildingPanel();
+  if (showLeaders) renderLeaders();
+  else if (selectedBuilding) renderBuildingPanel();
   else renderListView();
+}
+
+// Список лидеров: курьеры по числу оставленных кодов (звёзд).
+function renderLeaders() {
+  const authors = new Map();
+  for (const e of entries) {
+    if (!e.created_by) continue;
+    const a = authors.get(e.created_by) || { name: e.author_name || 'Без имени', count: 0 };
+    a.count++;
+    if (e.author_name) a.name = e.author_name;
+    authors.set(e.created_by, a);
+  }
+  const rows = [...authors.entries()].sort((a, b) => b[1].count - a[1].count);
+  const medal = (i) => ['🥇', '🥈', ''][i] || (i + 1) + '.';
+
+  $sidebar.innerHTML = `
+    <button class="btn small" id="btn-leaders-back">← К списку</button>
+    <div class="sidebar-head"><h2>🏆 Список лидеров</h2><span class="count">${rows.length}</span></div>
+    <ul class="entries" id="leaders-list"></ul>
+    ${!rows.length ? '<p class="empty">Пока нет записей.</p>' : ''}
+  `;
+  document.getElementById('btn-leaders-back').addEventListener('click', () => {
+    showLeaders = false;
+    renderSidebar();
+  });
+  const $ll = document.getElementById('leaders-list');
+  rows.forEach(([id, a], i) => {
+    const li = document.createElement('li');
+    li.className = 'entry leader' + (id === myId ? ' me' : '');
+    li.innerHTML = `
+      <div class="entry-main">
+        <b>${medal(i)} ${esc(a.name)}${id === myId ? ' (вы)' : ''}</b>
+        <span class="code">⭐ ${a.count}</span>
+      </div>
+      <div class="entry-meta">кодов: ${a.count}</div>`;
+    $ll.appendChild(li);
+  });
 }
 
 function renderListView() {
@@ -447,6 +487,7 @@ function refresh() {
 $search.addEventListener('input', () => {
   selectedBuilding = null;
   selectedEntrance = null;
+  showLeaders = false;
   highlightSelected();
   renderSidebar();
 });
@@ -555,6 +596,14 @@ function stopApp() {
 
 document.getElementById('btn-logout').addEventListener('click', () => {
   supabase.auth.signOut();
+});
+
+document.getElementById('btn-leaders').addEventListener('click', () => {
+  showLeaders = true;
+  selectedBuilding = null;
+  selectedEntrance = null;
+  highlightSelected();
+  renderSidebar();
 });
 
 document.getElementById('btn-name').addEventListener('click', async () => {
