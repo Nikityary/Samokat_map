@@ -1,0 +1,10 @@
+{
+  // Раздача собранного статического сайта (dist/) как Cloudflare Worker.
+  // Деплой: wrangler deploy (ключи Supabase уже вшиты в сборку из .env).
+  "name": "samokat-map-app",
+  "compatibility_date": "2026-11-18",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
