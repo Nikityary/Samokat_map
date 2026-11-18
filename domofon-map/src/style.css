@@ -42,11 +42,6 @@ body {
 .btn.danger { color: var(--danger); border-color: currentColor; }
 .btn.small { padding: .3rem .6rem; font-size: .82rem; }
 
-.banner {
-  background: #fff7e0; border-bottom: 1px solid #f0dfa8; padding: .5rem 1rem;
-  display: flex; align-items: center; gap: .8rem; font-size: .9rem;
-}
-
 main { flex: 1; display: flex; min-height: 0; }
 #map { flex: 1; }
 
@@ -91,3 +86,65 @@ main { flex: 1; display: flex; min-height: 0; }
   main { flex-direction: column; }
   #sidebar { width: auto; max-height: 40vh; border-left: none; border-top: 1px solid #e3e8ec; }
 }
+
+/* Панель дома: подъезды и записи */
+.building-head { margin-top: .6rem; align-items: center; }
+.building-head h2 { flex: 1; font-size: .98rem; }
+.legacy-head { margin-top: 1.2rem; }
+
+.chips { display: flex; flex-wrap: wrap; gap: .35rem; margin: .5rem 0; }
+.chip {
+  min-width: 2.2rem; padding: .35rem .6rem; border: 1px solid #d5dde3; border-radius: 999px;
+  background: var(--card); cursor: pointer; font-size: .88rem; font-weight: 600; color: var(--text);
+}
+.chip:hover { border-color: var(--accent); }
+.chip.has-code { background: #e6f7ff; border-color: var(--accent); }
+.chip.has-stale { background: #fff4e0; border-color: #f0a32f; }
+.chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip-edit { font-weight: 400; color: var(--muted); }
+
+.count-form { background: #f2f8fc; border: 1px solid #d5e6f0; border-radius: 10px; padding: .7rem; margin: .5rem 0; display: flex; flex-direction: column; gap: .4rem; font-size: .88rem; }
+.count-form label { color: var(--muted); }
+.count-row { display: flex; gap: .4rem; align-items: center; }
+.count-row input { width: 6rem; padding: .35rem .5rem; border: 1px solid #d5dde3; border-radius: 6px; font: inherit; }
+.hint { margin: 0; font-size: .75rem; color: var(--muted); }
+
+.record { border: 1px solid #e3e8ec; border-radius: 10px; padding: .6rem .7rem; margin-bottom: .45rem; background: #fbfdfe; }
+.record.is-stale { border-color: #f0c36d; background: #fffaf0; }
+.record-code { font-size: 1.15rem; font-weight: 700; color: var(--accent); }
+.record.is-stale .record-code { color: #d98b12; }
+.record-note { font-size: .85rem; margin-top: .15rem; }
+.record-meta { font-size: .75rem; color: var(--muted); margin-top: .2rem; }
+.record-form { background: #f2f8fc; border: 1px solid #d5e6f0; border-radius: 10px; padding: .7rem; margin-bottom: .5rem; }
+.record-form h3 { margin: 0 0 .3rem; font-size: .92rem; }
+#btn-add-record { width: 100%; margin-top: .3rem; }
+
+/* Экран входа / регистрации */
+.auth-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: linear-gradient(160deg, #eaf7fd 0%, var(--bg) 60%);
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+}
+.auth-card {
+  width: 100%; max-width: 360px; background: var(--card);
+  border: 1px solid #e3e8ec; border-radius: 14px; padding: 1.6rem 1.4rem;
+  box-shadow: 0 8px 30px rgba(20, 40, 60, .12);
+  display: flex; flex-direction: column; gap: .6rem; text-align: center;
+}
+.auth-logo { font-size: 2.2rem; }
+.auth-card h2 { margin: 0; font-size: 1.2rem; }
+.auth-sub { margin: 0 0 .4rem; font-size: .8rem; color: var(--muted); }
+.auth-card label { display: flex; flex-direction: column; gap: .2rem; text-align: left; font-size: .82rem; color: var(--muted); }
+.auth-card input {
+  padding: .5rem .65rem; border: 1px solid #d5dde3; border-radius: 8px; font: inherit; color: var(--text);
+}
+.auth-card input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+.auth-error { margin: 0; font-size: .82rem; color: var(--danger); text-align: left; }
+.auth-toggle {
+  background: none; border: none; color: var(--accent); cursor: pointer;
+  font-size: .85rem; padding: .2rem; text-decoration: underline;
+}
+.setup-steps { text-align: left; font-size: .85rem; margin: .2rem 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .3rem; }
+.setup-steps code { background: #eef3f6; padding: .05rem .3rem; border-radius: 4px; font-size: .8rem; }
+
+.user-email { font-size: .8rem; color: var(--muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

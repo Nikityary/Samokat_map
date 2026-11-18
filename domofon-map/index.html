@@ -18,31 +18,49 @@
       </div>
       <div class="actions">
         <input id="search" type="search" placeholder="Поиск по адресу…" autocomplete="off" />
-        <button id="btn-add" class="btn primary" title="Добавить точку: нажмите «Добавить», затем кликните на карту">＋ Добавить</button>
         <button id="btn-export" class="btn" title="Скачать все записи в JSON">Экспорт</button>
         <label class="btn" title="Загрузить записи из JSON-файла">
           Импорт<input id="file-import" type="file" accept=".json,application/json" hidden />
         </label>
+        <span id="user-email" class="user-email"></span>
+        <button id="btn-logout" class="btn" title="Выйти из аккаунта">Выйти</button>
       </div>
     </header>
 
-    <div id="addmode-banner" class="banner hidden">
-      Режим добавления: кликните на карте в месте, где находится подъезд. Нажмите <b>Esc</b> или кнопку ниже, чтобы отменить.
-      <button id="btn-cancel-add" class="btn small">Отменить</button>
-    </div>
-
     <main>
       <div id="map"></div>
-      <aside id="sidebar">
-        <div class="sidebar-head">
-          <h2>Записи</h2>
-          <span id="count" class="count">0</span>
-        </div>
-        <ul id="list" class="entries"></ul>
-        <p id="empty" class="empty">Пока нет записей.<br/>Нажмите «＋ Добавить» и кликните на карте.</p>
-      </aside>
+      <aside id="sidebar"></aside>
     </main>
   </div>
+
+  <div id="auth-overlay" class="auth-overlay hidden">
+    <form id="auth-form" class="auth-card">
+      <div class="auth-logo">🔑</div>
+      <h2 id="auth-title">Вход</h2>
+      <p class="auth-sub">Коды домофонов · Самокат · Владимир</p>
+      <label>Email<input id="auth-email" type="email" required autocomplete="email" placeholder="you@example.com" /></label>
+      <label>Пароль<input id="auth-password" type="password" required minlength="6" autocomplete="current-password" placeholder="не короче 6 символов" /></label>
+      <p id="auth-error" class="auth-error hidden"></p>
+      <button id="auth-submit" type="submit" class="btn primary">Войти</button>
+      <button id="auth-toggle" type="button" class="auth-toggle">Нет аккаунта? Зарегистрироваться</button>
+    </form>
+  </div>
+
+  <div id="setup-overlay" class="auth-overlay hidden">
+    <div class="auth-card">
+      <div class="auth-logo">⚙️</div>
+      <h2>Нужна настройка</h2>
+      <p class="auth-sub">Не заданы ключи Supabase.</p>
+      <ol class="setup-steps">
+        <li>Создайте проект на <b>supabase.com</b>.</li>
+        <li>Выполните <code>supabase/schema.sql</code> в SQL Editor.</li>
+        <li>Скопируйте <code>.env.example</code> в <code>.env</code> и подставьте Project URL и anon key (Settings → API).</li>
+        <li>Перезапустите <code>npm run dev</code>.</li>
+      </ol>
+      <p class="auth-sub">Подробности — в README проекта.</p>
+    </div>
+  </div>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

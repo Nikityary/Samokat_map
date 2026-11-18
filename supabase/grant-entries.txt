@@ -1,0 +1,4 @@
+Выполните эту строку в Supabase: SQL Editor -> New query -> вставить -> Run.
+Она выдаёт авторизованным сотрудникам права на таблицу кодов (entries).
+
+grant select, insert, update, delete on public.entries to authenticated;
