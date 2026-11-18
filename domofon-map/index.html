@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Домофоны — Коммунар и Заклязьменский (Владимир)</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">🔑</span>
+        <div>
+          <h1>Коды домофонов</h1>
+          <p class="subtitle">Самокат · Владимир · Коммунар и Заклязьменский</p>
+        </div>
+      </div>
+      <div class="actions">
+        <input id="search" type="search" placeholder="Поиск по адресу…" autocomplete="off" />
+        <button id="btn-add" class="btn primary" title="Добавить точку: нажмите «Добавить», затем кликните на карту">＋ Добавить</button>
+        <button id="btn-export" class="btn" title="Скачать все записи в JSON">Экспорт</button>
+        <label class="btn" title="Загрузить записи из JSON-файла">
+          Импорт<input id="file-import" type="file" accept=".json,application/json" hidden />
+        </label>
+      </div>
+    </header>
+
+    <div id="addmode-banner" class="banner hidden">
+      Режим добавления: кликните на карте в месте, где находится подъезд. Нажмите <b>Esc</b> или кнопку ниже, чтобы отменить.
+      <button id="btn-cancel-add" class="btn small">Отменить</button>
+    </div>
+
+    <main>
+      <div id="map"></div>
+      <aside id="sidebar">
+        <div class="sidebar-head">
+          <h2>Записи</h2>
+          <span id="count" class="count">0</span>
+        </div>
+        <ul id="list" class="entries"></ul>
+        <p id="empty" class="empty">Пока нет записей.<br/>Нажмите «＋ Добавить» и кликните на карте.</p>
+      </aside>
+    </main>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
