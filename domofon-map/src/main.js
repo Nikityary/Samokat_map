@@ -36,6 +36,7 @@ let selectedEntrance = null;
 let recordForm = null;          // {mode:'add'} | {mode:'edit', entry}
 let countFormOpen = false;
 let showLeaders = false;
+let selectedLeader = null;
 let started = false;
 let realtimeChannel = null;
 let realtimeTimer = null;
@@ -151,6 +152,7 @@ function renderBadges() {
 function selectBuilding(id) {
   selectedBuilding = id;
   showLeaders = false;
+  selectedLeader = null;
   recordForm = null;
   countFormOpen = false;
   const info = buildingInfo(id);
@@ -175,9 +177,51 @@ function closeBuilding() {
 // ---------- Боковая панель ----------
 
 function renderSidebar() {
-  if (showLeaders) renderLeaders();
+  if (selectedLeader) renderLeaderDetail();
+  else if (showLeaders) renderLeaders();
   else if (selectedBuilding) renderBuildingPanel();
   else renderListView();
+}
+
+// Записи конкретного курьера (клик по нему в списке лидеров).
+function renderLeaderDetail() {
+  const mine = entries.filter((e) => e.created_by === selectedLeader);
+  const name = mine.find((e) => e.author_name)?.author_name || 'Без имени';
+  const codeCount = mine.filter((e) => !e.important).length;
+  const groups = new Map();
+  for (const e of mine) {
+    const bid = e.building_id || 'legacy';
+    if (!groups.has(bid)) groups.set(bid, []);
+    groups.get(bid).push(e);
+  }
+  const ordered = [...groups.entries()].sort((a, b) => {
+    const aa = a[0] === 'legacy' ? '' : buildingInfo(a[0]).address;
+    const bb = b[0] === 'legacy' ? '' : buildingInfo(b[0]).address;
+    return aa.localeCompare(bb, 'ru', { numeric: true });
+  });
+
+  $sidebar.innerHTML = `
+    <button class="btn small" id="btn-leader-back">← К лидерам</button>
+    <div class="sidebar-head"><h2>👤 ${esc(name)}</h2><span class="code">⭐ ${codeCount}</span></div>
+    <p class="hint">Адреса, где этот курьер оставлял записи. Нажмите на адрес, чтобы открыть дом.</p>
+    <ul class="entries" id="leader-records"></ul>
+    ${!mine.length ? '<p class="empty">Нет записей.</p>' : ''}
+  `;
+  document.getElementById('btn-leader-back').addEventListener('click', () => {
+    selectedLeader = null;
+    renderSidebar();
+  });
+  const $ul = document.getElementById('leader-records');
+  for (const [bid, recs] of ordered) {
+    const addr = bid === 'legacy' ? 'Без дома' : buildingInfo(bid).address;
+    const li = document.createElement('li');
+    li.className = 'entry';
+    li.innerHTML = `
+      <div class="entry-main"><b>${esc(addr)}</b><span class="code">${recs.length}</span></div>
+      <div class="entry-meta">${recs.map((r) => `подъезд ${esc(r.entrance)}: ${r.important ? '❗' : esc(r.code || '—')}`).join(' · ')}</div>`;
+    if (bid !== 'legacy') li.addEventListener('click', () => selectBuilding(bid));
+    $ul.appendChild(li);
+  }
 }
 
 // Список лидеров: курьеры по числу оставленных кодов (звёзд).
@@ -212,7 +256,11 @@ function renderLeaders() {
         <b>${medal(i)} ${esc(a.name)}${id === myId ? ' (вы)' : ''}</b>
         <span class="code">⭐ ${a.count}</span>
       </div>
-      <div class="entry-meta">кодов: ${a.count}</div>`;
+      <div class="entry-meta">кодов: ${a.count} · нажмите, чтобы посмотреть адреса</div>`;
+    li.addEventListener('click', () => {
+      selectedLeader = id;
+      renderSidebar();
+    });
     $ll.appendChild(li);
   });
 }
@@ -492,6 +540,7 @@ $search.addEventListener('input', () => {
   selectedBuilding = null;
   selectedEntrance = null;
   showLeaders = false;
+  selectedLeader = null;
   highlightSelected();
   renderSidebar();
 });
@@ -606,6 +655,7 @@ document.getElementById('btn-leaders').addEventListener('click', () => {
   showLeaders = true;
   selectedBuilding = null;
   selectedEntrance = null;
+  selectedLeader = null;
   highlightSelected();
   renderSidebar();
 });
