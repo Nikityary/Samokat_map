@@ -265,6 +265,19 @@ function renderLeaders() {
   });
 }
 
+// Поиск, терпимый к «улица/ул./запятым»: «Зелёная 11» находит «Зелёная улица, 11».
+// Номера домов сравниваются точно (11 не совпадёт с 111), названия улиц — по подстроке.
+const STREET_WORDS = new Set(['улица', 'ул', 'переулок', 'пер', 'проспект', 'пр-т', 'просп', 'шоссе', 'бульвар', 'бул', 'проезд', 'пр-д', 'площадь', 'пл', 'тупик', 'набережная', 'наб', 'микрорайон', 'мкр', 'квартал', 'кв-л', 'аллея', 'деревня', 'дер', 'посёлок', 'пос', 'снт']);
+function searchTokens(s) {
+  return s.toLowerCase().replace(/[.,;№]/g, ' ').split(/\s+/).filter((t) => t && !STREET_WORDS.has(t));
+}
+function addressMatches(addr, q) {
+  const at = searchTokens(addr);
+  const qt = searchTokens(q);
+  if (!qt.length) return true;
+  return qt.every((t) => (/^\d+[а-яa-zё]?$/i.test(t) ? at.includes(t) : at.some((a) => a.includes(t))));
+}
+
 function renderListView() {
   const q = $search.value.trim().toLowerCase();
   const withCodes = new Map();
@@ -276,7 +289,7 @@ function renderListView() {
   if (q) {
     items = [...osm.keys()]
       .map(buildingInfo)
-      .filter((b) => b.address.toLowerCase().includes(q));
+      .filter((b) => addressMatches(b.address, q));
   } else {
     items = [...withCodes.keys()].map(buildingInfo);
   }
