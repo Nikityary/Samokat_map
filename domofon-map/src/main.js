@@ -18,9 +18,11 @@ const map = L.map('map');
 // Авторство OSM обязательно по лицензии ODbL — оставляем, но делаем компактным.
 map.attributionControl.setPrefix(false);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; OpenStreetMap',
+// Подложка Carto Voyager на данных OSM (чистый современный стиль).
+// Авторство OSM и CARTO обязательно по их лицензиям.
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  maxZoom: 20,
+  attribution: '&copy; OpenStreetMap &copy; CARTO',
 }).addTo(map);
 
 // ---------- Состояние ----------
