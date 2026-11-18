@@ -4,6 +4,8 @@ const $overlay = document.getElementById('auth-overlay');
 const $form = document.getElementById('auth-form');
 const $title = document.getElementById('auth-title');
 const $email = document.getElementById('auth-email');
+const $name = document.getElementById('auth-name');
+const $nameLabel = document.getElementById('auth-name-label');
 const $password = document.getElementById('auth-password');
 const $submit = document.getElementById('auth-submit');
 const $toggle = document.getElementById('auth-toggle');
@@ -34,6 +36,7 @@ function setMode(next) {
     ? 'Нет аккаунта? Зарегистрироваться'
     : 'Уже есть аккаунт? Войти';
   $password.autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+  $nameLabel.classList.toggle('hidden', mode !== 'register');
 }
 
 export function showAuth() {
@@ -60,7 +63,12 @@ export function initAuth() {
     const password = $password.value;
     try {
       if (mode === 'register') {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const displayName = $name.value.trim();
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { display_name: displayName || email.split('@')[0] } },
+        });
         if (error) throw error;
         if (!data.session) {
           setMode('login');

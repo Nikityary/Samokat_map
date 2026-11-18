@@ -156,4 +156,5 @@ main { flex: 1; display: flex; min-height: 0; }
 .setup-steps { text-align: left; font-size: .85rem; margin: .2rem 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .3rem; }
 .setup-steps code { background: #eef3f6; padding: .05rem .3rem; border-radius: 4px; font-size: .8rem; }
 
-.user-email { font-size: .8rem; color: var(--muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-name { font-size: .85rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-name #user-name { font-weight: 600; }

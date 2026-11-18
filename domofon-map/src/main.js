@@ -40,7 +40,8 @@ let realtimeTimer = null;
 
 const $sidebar = document.getElementById('sidebar');
 const $search = document.getElementById('search');
-const $userEmail = document.getElementById('user-email');
+const $userName = document.getElementById('user-name');
+let myName = '';
 
 // ----------Helpers ----------
 
@@ -334,7 +335,7 @@ function renderBuildingPanel() {
     card.innerHTML = `
       <div class="record-code">🔑 ${esc(r.code || '—')}</div>
       ${r.note ? `<div class="record-note">${esc(r.note)}</div>` : ''}
-      <div class="record-meta">${r.updatedAt ? 'обновлено ' + fmtDate(r.updatedAt) : ''}${r.stale ? ' · ⚠️ требует проверки' : ''}</div>
+      <div class="record-meta">${r.author_name ? esc(r.author_name) : ''}${r.updatedAt ? (r.author_name ? ' · ' : '') + 'обновлено ' + fmtDate(r.updatedAt) : ''}${r.stale ? ' · ⚠️ требует проверки' : ''}</div>
       <div class="popup-actions">
         <button class="btn small" data-edit>Изменить</button>
         <button class="btn danger small" data-del>Удалить</button>
@@ -406,6 +407,7 @@ function renderRecordForm(info) {
           lng: info.lng,
           address: info.address,
           code, note, stale,
+          author_name: myName,
         });
       }
       recordForm = null;
@@ -499,7 +501,8 @@ async function startApp(session) {
   if (started) return;
   started = true;
   hideAuth();
-  $userEmail.textContent = session.user.email || '';
+  myName = session.user.user_metadata?.display_name || session.user.email || '';
+  $userName.textContent = myName;
   try {
     const [es, bs] = await Promise.all([loadEntries(), loadBuildings()]);
     entries = es;
@@ -523,12 +526,28 @@ function stopApp() {
   entries = [];
   overrides = new Map();
   closeBuilding();
-  $userEmail.textContent = '';
+  $userName.textContent = '';
+  myName = '';
   showAuth();
 }
 
 document.getElementById('btn-logout').addEventListener('click', () => {
   supabase.auth.signOut();
+});
+
+document.getElementById('btn-name').addEventListener('click', async () => {
+  const next = prompt('Ваше имя (видно коллегам):', myName);
+  if (next === null) return;
+  const name = next.trim();
+  if (!name || name === myName) return;
+  try {
+    const { data, error } = await supabase.auth.updateUser({ data: { display_name: name } });
+    if (error) throw error;
+    myName = data.user.user_metadata?.display_name || name;
+    $userName.textContent = myName;
+  } catch (err) {
+    alert('Не удалось сохранить имя: ' + err.message);
+  }
 });
 
 // Дома рисуем сразу (под экраном входа), данные записей — после входа.
@@ -542,6 +561,10 @@ if (!isConfigured) {
   initAuth();
   supabase.auth.onAuthStateChange((event, session) => {
     if (session) {
+      if (event === 'USER_UPDATED') {
+        myName = session.user.user_metadata?.display_name || session.user.email || '';
+        $userName.textContent = myName;
+      }
       startApp(session);
     } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
       stopApp();

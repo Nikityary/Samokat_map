@@ -13,6 +13,7 @@ function fromRow(r) {
     code: r.code ?? '',
     note: r.note ?? '',
     stale: !!r.stale,
+    author_name: r.author_name ?? '',
     createdAt: r.created_at ? Date.parse(r.created_at) : 0,
     updatedAt: r.updated_at ? Date.parse(r.updated_at) : 0,
   };
@@ -29,6 +30,7 @@ function toRow(e, userId) {
     code: e.code ?? '',
     note: e.note ?? '',
     stale: !!e.stale,
+    author_name: e.author_name ?? '',
   };
   if (userId) row.created_by = userId;
   return row;
@@ -51,7 +53,7 @@ export async function addEntry(entry) {
 
 export async function updateEntry(id, patch) {
   const row = { updated_at: new Date().toISOString() };
-  for (const k of ['address', 'entrance', 'code', 'note', 'stale', 'building_id']) {
+  for (const k of ['address', 'entrance', 'code', 'note', 'stale', 'building_id', 'author_name']) {
     if (k in patch) row[k] = patch[k];
   }
   const { error } = await supabase.from('entries').update(row).eq('id', id);
