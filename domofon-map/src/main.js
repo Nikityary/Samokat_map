@@ -15,10 +15,12 @@ const DISTRICT_BOUNDS = L.latLngBounds(
 );
 
 const map = L.map('map');
+// Авторство OSM обязательно по лицензии ODbL — оставляем, но делаем компактным.
+map.attributionControl.setPrefix(false);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
-  attribution: '&copy; OpenStreetMap contributors',
+  attribution: '&copy; OpenStreetMap',
 }).addTo(map);
 
 // ---------- Состояние ----------
