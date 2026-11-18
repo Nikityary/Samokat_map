@@ -1,0 +1,4 @@
+Выполните эту строку в Supabase: SQL Editor -> New query -> вставить -> Run.
+Она добавляет колонку для пометки «Важное» (заметка, не код).
+
+alter table public.entries add column if not exists important boolean not null default false;

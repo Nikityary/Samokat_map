@@ -117,6 +117,8 @@ main { flex: 1; display: flex; min-height: 0; }
 
 .record { border: 1px solid #e3e8ec; border-radius: 10px; padding: .6rem .7rem; margin-bottom: .45rem; background: #fbfdfe; }
 .record.is-stale { border-color: #f0c36d; background: #fffaf0; }
+.record.is-important { border-color: #e0862f; background: #fff6ec; }
+.record-code.important { color: #d9700f; }
 .record-code { font-size: 1.15rem; font-weight: 700; color: var(--accent); }
 .record.is-stale .record-code { color: #d98b12; }
 .record-note { font-size: .85rem; margin-top: .15rem; }

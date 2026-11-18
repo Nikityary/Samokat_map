@@ -10,6 +10,7 @@ create table if not exists public.entries (
   code text not null default '',
   note text not null default '',
   stale boolean not null default false,
+  important boolean not null default false,
   author_name text not null default '',
   created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),

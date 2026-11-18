@@ -53,7 +53,7 @@ let authorCounts = new Map(); // created_by -> число оставленных
 function recomputeAuthorCounts() {
   authorCounts = new Map();
   for (const e of entries) {
-    if (e.created_by) authorCounts.set(e.created_by, (authorCounts.get(e.created_by) || 0) + 1);
+    if (e.created_by && !e.important) authorCounts.set(e.created_by, (authorCounts.get(e.created_by) || 0) + 1);
   }
 }
 function stars(id) {
@@ -184,7 +184,7 @@ function renderSidebar() {
 function renderLeaders() {
   const authors = new Map();
   for (const e of entries) {
-    if (!e.created_by) continue;
+    if (!e.created_by || e.important) continue;
     const a = authors.get(e.created_by) || { name: e.author_name || 'Без имени', count: 0 };
     a.count++;
     if (e.author_name) a.name = e.author_name;
@@ -232,7 +232,7 @@ function renderListView() {
   } else {
     items = [...withCodes.keys()].map(buildingInfo);
   }
-  items.sort((a, b) => a.address.localeCompare(b.address, 'ru'));
+  items.sort((a, b) => a.address.localeCompare(b.address, 'ru', { numeric: true }));
 
   const legacy = legacyEntries();
 
@@ -321,8 +321,9 @@ function renderBuildingPanel() {
         + (ent === selectedEntrance ? ' active' : '')
         + (recs.length ? ' has-code' : '')
         + (stale ? ' has-stale' : '');
-      chip.innerHTML = `${esc(ent)}${recs.length ? ' 🔑' : ''}`;
-      chip.title = recs.length ? `Записей: ${recs.length}` : 'Кодов пока нет';
+      const icons = (recs.some((r) => !r.important) ? '🔑' : '') + (recs.some((r) => r.important) ? '❗' : '');
+      chip.innerHTML = `${esc(ent)}${icons ? ' ' + icons : ''}`;
+      chip.title = recs.length ? `Записей: ${recs.length}` : 'Записей пока нет';
       chip.addEventListener('click', () => {
         selectedEntrance = ent;
         recordForm = null;
@@ -383,15 +384,15 @@ function renderBuildingPanel() {
     <div class="sidebar-head"><h2>Подъезд ${esc(selectedEntrance)}</h2><span class="count">${recs.length}</span></div>
     <div id="records"></div>
     <div id="record-form-slot"></div>
-    ${recordForm ? '' : '<button class="btn primary" id="btn-add-record">＋ Добавить код</button>'}
+    ${recordForm ? '' : '<button class="btn primary" id="btn-add-record">＋ Добавить запись</button>'}
   `;
 
   const $records = document.getElementById('records');
   for (const r of recs) {
     const card = document.createElement('div');
-    card.className = 'record' + (r.stale ? ' is-stale' : '');
+    card.className = 'record' + (r.stale ? ' is-stale' : '') + (r.important ? ' is-important' : '');
     card.innerHTML = `
-      <div class="record-code">🔑 ${esc(r.code || '—')}</div>
+      <div class="record-code${r.important ? ' important' : ''}">${r.important ? '❗ Важное' : '🔑 ' + esc(r.code || '—')}</div>
       ${r.note ? `<div class="record-note">${esc(r.note)}</div>` : ''}
       <div class="record-meta">${r.author_name ? esc(r.author_name) + stars(r.created_by) : ''}${r.updatedAt ? (r.author_name ? ' · ' : '') + 'обновлено ' + fmtDate(r.updatedAt) : ''}${r.stale ? ' · ⚠️ требует проверки' : ''}</div>
       <div class="popup-actions">
@@ -429,6 +430,7 @@ function renderRecordForm(info) {
       <h3>${e ? 'Изменить запись' : 'Новый код'} · подъезд ${esc(selectedEntrance)}</h3>
       <label>Код домофона<input name="code" value="${esc(e?.code ?? '')}" placeholder="например 1234#" /></label>
       <label>Комментарий<textarea name="note" rows="2" placeholder="например: звонить не нужно, дверь открыта">${esc(e?.note ?? '')}</textarea></label>
+      <label class="check"><input type="checkbox" name="important" ${e?.important ? 'checked' : ''}/> ❗ Важное (заметка о подъезде, не код)</label>
       <label class="check"><input type="checkbox" name="stale" ${e?.stale ? 'checked' : ''}/> Код мог измениться (требует проверки)</label>
       <div class="popup-actions">
         <button type="submit" class="btn primary small">${e ? 'Сохранить' : 'Добавить'}</button>
@@ -447,10 +449,12 @@ function renderRecordForm(info) {
     const code = f.code.value.trim();
     const note = f.note.value.trim();
     const stale = f.stale.checked;
-    if (!code && !confirm('Код пустой. Всё равно сохранить запись без кода?')) return;
+    const important = f.important.checked;
+    if (important && !note) { alert('Для важной заметки заполните комментарий.'); return; }
+    if (!important && !code && !confirm('Код пустой. Всё равно сохранить запись без кода?')) return;
     try {
       if (e) {
-        entries = await updateEntry(e.id, { code, note, stale });
+        entries = await updateEntry(e.id, { code, note, stale, important });
       } else {
         // дом должен существовать в базе (внешний ключ)
         if (!overrides.has(info.id)) {
@@ -464,7 +468,7 @@ function renderRecordForm(info) {
           lat: info.lat,
           lng: info.lng,
           address: info.address,
-          code, note, stale,
+          code, note, stale, important,
           author_name: myName,
         });
       }
