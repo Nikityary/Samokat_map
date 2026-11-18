@@ -6,6 +6,7 @@ import { loadOsmBuildings } from './osm.js';
 import {
   loadEntries, addEntry, updateEntry, deleteEntry, importEntries,
   loadBuildings, upsertBuilding, upsertBuildings, subscribeToChanges, genId,
+  loadContacts, saveContact, deleteContact,
 } from './storage.js';
 
 // Границы района: Коммунар и Заклязьменский (Владимир)
@@ -37,6 +38,9 @@ let recordForm = null;          // {mode:'add'} | {mode:'edit', entry}
 let countFormOpen = false;
 let showLeaders = false;
 let selectedLeader = null;
+let showContacts = false;
+let contacts = [];
+let contactForm = null;
 let started = false;
 let realtimeChannel = null;
 let realtimeTimer = null;
@@ -153,6 +157,7 @@ function selectBuilding(id) {
   selectedBuilding = id;
   showLeaders = false;
   selectedLeader = null;
+  showContacts = false;
   recordForm = null;
   countFormOpen = false;
   const info = buildingInfo(id);
@@ -177,10 +182,96 @@ function closeBuilding() {
 // ---------- Боковая панель ----------
 
 function renderSidebar() {
-  if (selectedLeader) renderLeaderDetail();
+  if (showContacts) renderContacts();
+  else if (selectedLeader) renderLeaderDetail();
   else if (showLeaders) renderLeaders();
   else if (selectedBuilding) renderBuildingPanel();
   else renderListView();
+}
+
+// ---------- Контакты сотрудников ----------
+const ROLE_ORDER = { 'Директор ЦФЗ': 0, 'Товаровед': 1 };
+
+function renderContacts() {
+  const sorted = [...contacts].sort((a, b) =>
+    (ROLE_ORDER[a.role] ?? 2) - (ROLE_ORDER[b.role] ?? 2) || a.name.localeCompare(b.name, 'ru'));
+  $sidebar.innerHTML = `
+    <button class="btn small" id="btn-contacts-back">← К списку</button>
+    <div class="sidebar-head"><h2>📞 Контакты</h2><span class="count">${contacts.length}</span></div>
+    <div id="contact-form-slot"></div>
+    <ul class="entries" id="contacts-list"></ul>
+    ${!contacts.length ? '<p class="empty">Контактов пока нет. Добавьте первый.</p>' : ''}
+    ${contactForm ? '' : '<button class="btn primary" id="btn-add-contact">＋ Добавить контакт</button>'}
+  `;
+  document.getElementById('btn-contacts-back').addEventListener('click', () => {
+    showContacts = false;
+    contactForm = null;
+    renderSidebar();
+  });
+  const $cl = document.getElementById('contacts-list');
+  for (const c of sorted) {
+    const li = document.createElement('li');
+    li.className = 'entry contact';
+    li.innerHTML = `
+      <div class="entry-main"><b>${esc(c.name)}</b><span class="role-badge">${esc(c.role)}</span></div>
+      <div class="entry-meta"><a class="tel" href="tel:${esc(c.phone)}">📱 ${esc(c.phone)}</a></div>
+      <div class="popup-actions">
+        <button class="btn small" data-edit>Изменить</button>
+        <button class="btn danger small" data-del>Удалить</button>
+      </div>`;
+    li.querySelector('[data-edit]').addEventListener('click', () => {
+      contactForm = { mode: 'edit', entry: c };
+      renderContacts();
+    });
+    li.querySelector('[data-del]').addEventListener('click', async () => {
+      if (!confirm(`Удалить контакт «${c.name}»?`)) return;
+      try { await deleteContact(c.id); contacts = await loadContacts(); renderContacts(); }
+      catch (err) { alert('Не удалось удалить: ' + err.message); }
+    });
+    $cl.appendChild(li);
+  }
+  document.getElementById('btn-add-contact')?.addEventListener('click', () => {
+    contactForm = { mode: 'add' };
+    renderContacts();
+  });
+  if (contactForm) renderContactForm();
+}
+
+function renderContactForm() {
+  const e = contactForm.mode === 'edit' ? contactForm.entry : null;
+  const slot = document.getElementById('contact-form-slot');
+  slot.innerHTML = `
+    <form class="popup-form record-form" id="contact-form">
+      <h3>${e ? 'Изменить контакт' : 'Новый контакт'}</h3>
+      <label>Роль<select name="role">
+        <option ${e?.role === 'Директор ЦФЗ' ? 'selected' : ''}>Директор ЦФЗ</option>
+        <option ${e?.role === 'Товаровед' || !e ? 'selected' : ''}>Товаровед</option>
+        <option ${e?.role === 'Другое' ? 'selected' : ''}>Другое</option>
+      </select></label>
+      <label>ФИО<input name="name" value="${esc(e?.name ?? '')}" placeholder="Иванов Иван Иванович" /></label>
+      <label>Телефон<input name="phone" value="${esc(e?.phone ?? '')}" placeholder="+7 900 000-00-00" /></label>
+      <div class="popup-actions">
+        <button type="submit" class="btn primary small">${e ? 'Сохранить' : 'Добавить'}</button>
+        <button type="button" class="btn small" id="contact-cancel">Отмена</button>
+      </div>
+    </form>`;
+  document.getElementById('contact-cancel').addEventListener('click', () => {
+    contactForm = null;
+    renderContacts();
+  });
+  document.getElementById('contact-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const f = ev.target;
+    const name = f.name.value.trim();
+    const phone = f.phone.value.trim();
+    if (!name || !phone) { alert('Заполните ФИО и телефон.'); return; }
+    try {
+      await saveContact({ id: e?.id || genId(), role: f.role.value, name, phone });
+      contacts = await loadContacts();
+      contactForm = null;
+      renderContacts();
+    } catch (err) { alert('Не удалось сохранить: ' + err.message); }
+  });
 }
 
 // Записи конкретного курьера (клик по нему в списке лидеров).
@@ -541,6 +632,8 @@ $search.addEventListener('input', () => {
   selectedEntrance = null;
   showLeaders = false;
   selectedLeader = null;
+  showContacts = false;
+  contactForm = null;
   highlightSelected();
   renderSidebar();
 });
@@ -604,6 +697,7 @@ function scheduleRealtimeReload() {
       const [es, bs] = await Promise.all([loadEntries(), loadBuildings()]);
       entries = es;
       overrides = new Map(bs.map((b) => [b.id, b]));
+      contacts = await loadContacts().catch(() => contacts);
       refresh();
     } catch {
       // при следующем изменении попробуем снова
@@ -622,6 +716,7 @@ async function startApp(session) {
     const [es, bs] = await Promise.all([loadEntries(), loadBuildings()]);
     entries = es;
     overrides = new Map(bs.map((b) => [b.id, b]));
+    contacts = await loadContacts().catch(() => []);
     refresh();
   } catch (err) {
     alert('Не удалось загрузить записи: ' + err.message);
@@ -656,6 +751,18 @@ document.getElementById('btn-leaders').addEventListener('click', () => {
   selectedBuilding = null;
   selectedEntrance = null;
   selectedLeader = null;
+  showContacts = false;
+  highlightSelected();
+  renderSidebar();
+});
+
+document.getElementById('btn-contacts').addEventListener('click', () => {
+  showContacts = true;
+  selectedBuilding = null;
+  selectedEntrance = null;
+  showLeaders = false;
+  selectedLeader = null;
+  contactForm = null;
   highlightSelected();
   renderSidebar();
 });
