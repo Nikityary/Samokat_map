@@ -126,6 +126,9 @@ main { flex: 1; display: flex; min-height: 0; }
 .leader.me { background: #e6f7ff; border-color: var(--accent); }
 .leader .entry-main b { font-size: .95rem; }
 
+.vertex-wrap { background: none; border: none; }
+.vertex { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.4); cursor: grab; }
+
 .record-form { background: #f2f8fc; border: 1px solid #d5e6f0; border-radius: 10px; padding: .7rem; margin-bottom: .5rem; }
 .record-form h3 { margin: 0 0 .3rem; font-size: .92rem; }
 #btn-add-record { width: 100%; margin-top: .3rem; }

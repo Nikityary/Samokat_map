@@ -1,0 +1,5 @@
+НОВАЯ строка для РЕДАКТОРА КОНТУРОВ домов (не путать с предыдущими SQL!).
+Выполните в Supabase: SQL Editor -> New query -> вставить -> Run.
+Добавляет колонку poly (контур дома) в таблицу buildings.
+
+alter table public.buildings add column if not exists poly jsonb;

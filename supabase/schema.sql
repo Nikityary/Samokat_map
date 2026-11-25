@@ -47,6 +47,7 @@ create table if not exists public.buildings (
   lat double precision,
   lng double precision,
   entrances_count integer,
+  poly jsonb,
   updated_at timestamptz not null default now()
 );
 

@@ -1,6 +1,6 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { supabase, isConfigured } from './supabase.js';
+import { supabase, isConfigured, usingProxy } from './supabase.js';
 import { initAuth, showAuth, hideAuth } from './auth.js';
 import { loadOsmBuildings } from './osm.js';
 import {
@@ -46,6 +46,9 @@ let countFormOpen = false;
 let showLeaders = false;
 let selectedLeader = null;
 let addressFormOpen = false;
+let editPoly = false;
+let polyDraft = null;
+let vertexMarkers = [];
 let kladr = {}; // улица -> номера домов из реестра КЛАДР
 let started = false;
 let realtimeChannel = null;
@@ -126,6 +129,46 @@ function drawBuildings() {
   }
 }
 
+// контур из базы (правка пользователя) приоритетнее OSM
+function effectivePoly(id) {
+  return overrides.get(id)?.poly || osm.get(id)?.poly || [];
+}
+function syncPolys() {
+  for (const [id, p] of polygons) {
+    if (editPoly && id === selectedBuilding) continue;
+    const ep = effectivePoly(id);
+    if (ep.length) p.setLatLngs(ep);
+  }
+}
+function clearVertexMarkers() {
+  for (const m of vertexMarkers) map.removeLayer(m);
+  vertexMarkers = [];
+}
+function startPolyEdit(id) {
+  clearVertexMarkers();
+  editPoly = true;
+  polyDraft = effectivePoly(id).map((p) => [p[0], p[1]]);
+  polyDraft.forEach((pt, i) => {
+    const mk = L.marker(pt, {
+      draggable: true,
+      icon: L.divIcon({ className: 'vertex-wrap', html: '<div class="vertex"></div>', iconSize: [14, 14] }),
+    }).addTo(map);
+    mk.on('drag', () => {
+      const ll = mk.getLatLng();
+      polyDraft[i] = [ll.lat, ll.lng];
+      polygons.get(id)?.setLatLngs(polyDraft);
+    });
+    vertexMarkers.push(mk);
+  });
+  renderBuildingPanel();
+}
+function exitPolyEdit() {
+  clearVertexMarkers();
+  editPoly = false;
+  polyDraft = null;
+  syncPolys();
+}
+
 function highlightSelected() {
   for (const [id, p] of polygons) {
     p.setStyle(id === selectedBuilding ? POLY_SELECTED : POLY_STYLE);
@@ -166,6 +209,7 @@ function selectBuilding(id) {
   recordForm = null;
   countFormOpen = false;
   addressFormOpen = false;
+  exitPolyEdit();
   const info = buildingInfo(id);
   const list = entranceList(info);
   const withCode = list?.find((ent) => recordsFor(id, ent).length > 0);
@@ -182,6 +226,7 @@ function closeBuilding() {
   recordForm = null;
   countFormOpen = false;
   addressFormOpen = false;
+  exitPolyEdit();
   highlightSelected();
   renderSidebar();
 }
@@ -367,8 +412,10 @@ function renderBuildingPanel() {
     <div class="sidebar-head building-head">
       <h2>${esc(info.address)}</h2>
       <button class="btn small" id="btn-edit-address" title="Уточнить адрес">✏️</button>
+      <button class="btn small" id="btn-edit-poly" title="Подогнать контур дома под карту">⬠</button>
     </div>
     <div id="address-slot"></div>
+    <div id="poly-slot"></div>
     <div class="chips" id="chips"></div>
     <div id="count-slot"></div>
     <div id="entrance-slot"></div>
@@ -416,6 +463,32 @@ function renderBuildingPanel() {
         refresh();
       } catch (err) { alert('Не удалось сохранить адрес: ' + err.message); }
     });
+  }
+
+  document.getElementById('btn-edit-poly').addEventListener('click', () => {
+    if (editPoly) { exitPolyEdit(); renderBuildingPanel(); }
+    else startPolyEdit(info.id);
+  });
+  const $pslot = document.getElementById('poly-slot');
+  if (editPoly) {
+    $pslot.innerHTML = `
+      <div class="count-form">
+        <label>Правка контура: перетаскивайте точки на карте</label>
+        <div class="count-row">
+          <button class="btn primary small" id="poly-save">Сохранить контур</button>
+          <button class="btn small" id="poly-cancel">Отмена</button>
+        </div>
+        <p class="hint">Контур сохранится в общую базу и будет виден всем.</p>
+      </div>`;
+    document.getElementById('poly-save').addEventListener('click', async () => {
+      try {
+        await upsertBuilding({ id: info.id, address: info.address, lat: info.lat, lng: info.lng, entrances_count: info.count, poly: polyDraft });
+        overrides.set(info.id, { ...(overrides.get(info.id) || {}), id: info.id, poly: polyDraft });
+        exitPolyEdit();
+        refresh();
+      } catch (err) { alert('Не удалось сохранить контур: ' + err.message); }
+    });
+    document.getElementById('poly-cancel').addEventListener('click', () => { exitPolyEdit(); renderBuildingPanel(); });
   }
 
   const $chips = document.getElementById('chips');
@@ -590,6 +663,7 @@ function renderRecordForm(info) {
 function refresh() {
   recomputeAuthorCounts();
   paintName();
+  syncPolys();
   renderBadges();
   renderSidebar();
 }
@@ -686,7 +760,8 @@ async function startApp(session) {
   } catch (err) {
     alert('Не удалось загрузить записи: ' + err.message);
   }
-  realtimeChannel = subscribeToChanges(scheduleRealtimeReload);
+  // realtime (websocket) через прокси не работает — включаем только при прямом подключении
+  if (!usingProxy) realtimeChannel = subscribeToChanges(scheduleRealtimeReload);
 }
 
 function stopApp() {
