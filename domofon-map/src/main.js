@@ -17,12 +17,20 @@ const DISTRICT_BOUNDS = L.latLngBounds(
 // Плашку авторства убрали с карты (лицензия ODbL) — credit вынесен в footer страницы.
 const map = L.map('map', { attributionControl: false });
 
-// Подложка OSM-FR на данных OSM: чистый стиль без ключа и водяных знаков
-// (Carto Voyager требует API-ключ). Авторство OSM обязательно по ODbL.
-L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+// Подложки: 2GIS (свежая детальная карта, по ключу пользователя) + OSM-FR запасная.
+// Ключ 2GIS — из env (не в публичном коде); авторство 2GIS/OSM — в footer.
+const gisKey = import.meta.env.VITE_2GIS_KEY || '';
+const base2gis = L.tileLayer('https://{s}.maps.2gis.com/tiles?x={x}&y={y}&z={z}&ts=online&key=' + gisKey, {
+  subdomains: ['tile0', 'tile1', 'tile2', 'tile3'],
+  maxZoom: 19,
+  attribution: '&copy; 2GIS',
+});
+const baseOsm = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
   maxZoom: 20,
   attribution: '&copy; OpenStreetMap &copy; OSM-FR',
-}).addTo(map);
+});
+if (gisKey) base2gis.addTo(map); else baseOsm.addTo(map);
+L.control.layers({ '2GIS': base2gis, 'OSM': baseOsm }, null, { position: 'topright' }).addTo(map);
 
 // ---------- Состояние ----------
 

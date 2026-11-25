@@ -31,6 +31,7 @@ jobs:
           # publishable-ключ Supabase публичный по замыслу; данные защищает RLS
           VITE_SUPABASE_URL: https://jaskogcjhnuxrnjjnjdm.supabase.co
           VITE_SUPABASE_ANON_KEY: sb_publishable_ipZ_Ht1pJmBgME0upkhTBw_THFNTGA_
+          VITE_2GIS_KEY: ${{ secrets.TWOGIS_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: domofon-map/dist
