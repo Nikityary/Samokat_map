@@ -379,7 +379,9 @@ function renderBuildingPanel() {
     const nums = kladr[street] || [];
     $aslot.innerHTML = `
       <form class="count-form" id="address-form">
-        <label>Улица: <b>${esc(street)}</b></label>
+        <label>Улица (можно менять свободно)
+          <input name="street" value="${esc(street)}" placeholder="название улицы" />
+        </label>
         <label>Номер дома
           <input name="num" list="kladr-nums" value="${esc(currentNum)}" placeholder="выберите из списка или введите" />
         </label>
@@ -388,7 +390,7 @@ function renderBuildingPanel() {
           <button type="submit" class="btn primary small">Сохранить</button>
           <button type="button" class="btn small" id="address-cancel">Отмена</button>
         </div>
-        <p class="hint">${nums.length ? `Реестр КЛАДР: ${nums.length} домов на этой улице — выберите точный номер.` : 'Для этой улицы списка КЛАДР нет — введите номер вручную.'}</p>
+        <p class="hint">${nums.length ? `Подсказка: в справочнике ${nums.length} номеров для этой улицы.` : 'Номер можно ввести вручную.'} Улицу и номер можно править свободно.</p>
       </form>`;
     document.getElementById('address-cancel').addEventListener('click', () => {
       addressFormOpen = false;
@@ -396,8 +398,9 @@ function renderBuildingPanel() {
     });
     document.getElementById('address-form').addEventListener('submit', async (ev) => {
       ev.preventDefault();
+      const st = ev.target.street.value.trim() || street;
       const num = ev.target.num.value.trim();
-      const address = num ? `${street}, ${num}` : street;
+      const address = num ? `${st}, ${num}` : st;
       try {
         await upsertBuilding({ id: info.id, address, lat: info.lat, lng: info.lng, entrances_count: info.count });
         overrides.set(info.id, { ...(overrides.get(info.id) || {}), id: info.id, address });
