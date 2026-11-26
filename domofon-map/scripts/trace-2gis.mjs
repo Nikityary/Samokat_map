@@ -9,7 +9,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
-const ROOT = fileURLToPath(new URL('../..', import.meta.url)); // корень репозитория
+const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const KEY = readFileSync(ROOT + '/gis-key.txt', 'utf8').match(/KEY=(\S+)/)[1];
 const OSM = fileURLToPath(new URL('../public/osm-buildings.json', import.meta.url));
 const Z = 18;
@@ -72,9 +72,15 @@ async function getStitch(tx, ty) {
 
 function fail(reason) { failReason[reason] = (failReason[reason] || 0) + 1; return null; }
 
-// предикаты заливки по R,G каналу
-const fillA = (r, g) => r >= LIGHT;
-const fillB = (r, g) => r >= DARK && r <= LANDMAX && g <= r + 10;
+// предикаты заливки по R,G,B. Земля 2GIS двух оттенков: тёплый беж 235,230,209
+// и бледный крем 245,242,224; оба — барьер. Зелень G>R+10, текст R<150 — барьер.
+const isWarmLand = (r, g, b) => Math.abs(r - 235) <= 4 && Math.abs(g - 230) <= 4 && Math.abs(b - 209) <= 6;
+const isCreamLand = (r, g, b) => Math.abs(r - 245) <= 3 && Math.abs(g - 242) <= 3 && Math.abs(b - 224) <= 5;
+const landish = (r, g, b) => isWarmLand(r, g, b) || isCreamLand(r, g, b) || g > r + 10 || r < DARK;
+const fillA = (r, g, b) => r >= LIGHT && !landish(r, g, b);   // только светлая крыша (сдвинута 3D-стенами)
+// C: весь видимый силуэт (крыша+стены): всё, кроме земли, зелени, тёмного текста
+const fillC = (r, g, b) => !landish(r, g, b);
+const fillB = (r, g, b) => r >= DARK && r <= LANDMAX && g <= r + 10;
 
 // сплошной блок 3x3 заливки — признак внутренности фигуры, не ореола подписи
 function solid3(st, x, y, isFill) {
@@ -82,7 +88,7 @@ function solid3(st, x, y, isFill) {
   if (x < 1 || y < 1 || x >= st.width - 1 || y >= st.height - 1) return false;
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     const i = ((y + dy) * W + (x + dx)) << 2;
-    if (!isFill(st.data[i], st.data[i + 1])) return false;
+    if (!isFill(st.data[i], st.data[i + 1], st.data[i + 2])) return false;
   }
   return true;
 }
@@ -102,7 +108,7 @@ function flood(st, start, isFill) {
       const idx = ny * W + nx;
       if (!mask[idx]) {
         const i = idx << 2;
-        if (isFill(st.data[i], st.data[i + 1])) { mask[idx] = 1; stack.push([nx, ny]); }
+        if (isFill(st.data[i], st.data[i + 1], st.data[i + 2])) { mask[idx] = 1; stack.push([nx, ny]); }
       }
     }
   }
@@ -168,11 +174,12 @@ function trace(st, sx, sy) {
 function traceInner(st, sx, sy, diag) {
   const fail = (reason) => { diag.push(reason); return null; };
   const W = st.width, H = st.height;
-  const R = (x, y) => { const i = (W * y + x) << 2; return [st.data[i], st.data[i + 1]]; };
+  const R = (x, y) => { const i = (W * y + x) << 2; return [st.data[i], st.data[i + 1], st.data[i + 2]]; };
   const cx = Math.round(sx), cy = Math.round(sy);
   const strategies = [
-    ['A', fillA, (r, g) => r >= START_LIGHT],
-    ['B', fillB, fillB],
+    ['C', fillC, fillC],                    // весь силуэт: крыша + 3D-стены
+    ['A', fillA, (r, g, b) => r >= START_LIGHT], // запасная: только светлая крыша
+    ['B', fillB, fillB],                    // запасная: серые дома
   ];
   for (const [tag, isFill, isStart] of strategies) {
     const cands = [];
@@ -215,14 +222,17 @@ const DRY = process.env.DRY === '1';
 const list = limit ? data.buildings.slice(0, limit) : data.buildings;
 let ok = 0, failCnt = 0;
 const fails = [];
+const DBG = process.env.DBG_ADDR || '';
 for (const b of list) {
+  if (DBG && !(b.address || '').includes(DBG)) continue;
   const t = tileFor(b.lat, b.lng, Z);
   const st = await getStitch(t.x, t.y);
   if (!st) { failCnt++; fails.push([b.address, 'no tiles']); continue; }
   // координаты точки дома внутри сшивки
   const sx = t.px + PAD, sy = t.py + PAD;
   const poly = trace(st, sx, sy);
-  if (!poly.poly) { failCnt++; fails.push(b.address + ' [' + poly.diag.join(',') + ']'); continue; }
+  if (!poly.poly) { failCnt++; fails.push(b.address + ' [' + poly.diag.join(',') + ']'); if (DBG) console.log('FAIL', b.address, poly.diag); continue; }
+  if (DBG) console.log('OK', b.address, 'вершин:', poly.poly.length);
   const P = poly.poly;
   b.poly2 = P.map(([px, py]) => {
     const lx = px - PAD, ly = py - PAD; // обратно в пиксели центрального тайла
