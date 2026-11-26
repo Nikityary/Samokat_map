@@ -166,12 +166,40 @@ function perp(p, a, b) {
   return Math.abs(dy * p[0] - dx * p[1] + b[0] * a[1] - b[1] * a[0]) / len;
 }
 
-function trace(st, sx, sy) {
+function trace(st, sx, sy, id, pts) {
   const diag = [];
-  const result = traceInner(st, sx, sy, diag);
+  const result = traceInner(st, sx, sy, diag, id, pts);
   return result ? { poly: result, diag } : { poly: null, diag };
 }
-function traceInner(st, sx, sy, diag) {
+// Режем слипшееся пятно по ближайшим точкам домов (BFS-«Ватерлоо»): каждому адресу
+// достаётся кусок вокруг его точки, а не весь общий силуэт сблокированных домов.
+function splitMask(mask, W, H, seeds) {
+  const label = new Int32Array(W * H);
+  const qx = [], qy = [];
+  const used = new Set();
+  for (let s = 0; s < seeds.length; s++) {
+    const idx = seeds[s].y * W + seeds[s].x;
+    if (!mask[idx] || used.has(idx)) continue;
+    used.add(idx);
+    label[idx] = s + 1;
+    qx.push(seeds[s].x); qy.push(seeds[s].y);
+  }
+  if (!used.size) return null;
+  for (let head = 0; head < qx.length; head++) {
+    const x = qx[head], y = qy[head], l = label[y * W + x];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const ni = ny * W + nx;
+      if (mask[ni] && !label[ni]) { label[ni] = l; qx.push(nx); qy.push(ny); }
+    }
+  }
+  const out = new Uint8Array(W * H);
+  let area = 0;
+  for (let i = 0; i < label.length; i++) if (mask[i] && label[i] === 1) { out[i] = 1; area++; }
+  return area ? { mask: out, area } : null;
+}
+function traceInner(st, sx, sy, diag, id, pts) {
   const fail = (reason) => { diag.push(reason); return null; };
   const W = st.width, H = st.height;
   const R = (x, y) => { const i = (W * y + x) << 2; return [st.data[i], st.data[i + 1], st.data[i + 2]]; };
@@ -195,10 +223,24 @@ function traceInner(st, sx, sy, diag) {
       const f = flood(st, [x, y], isFill);
       if (f.leak) { fail(tag + ':leak'); continue; }
       if (f.area < MIN_AREA) { fail(tag + ':tiny'); continue; }
+      // пятно накрыло точки соседних домов → режем его по ближайшим точкам;
+      // пятно, в котором есть только чужая точка, — это чужой дом, ищем дальше
+      const inside = (pts || []).filter((p) => f.mask[p.py * W + p.px]);
+      const mine = inside.some((p) => p.id === id);
+      if (inside.length && !mine) { fail(tag + ':notmine'); continue; }
+      let reg = f.mask;
+      const others = inside.filter((p) => p.id !== id);
+      if (others.length) {
+        const parts = splitMask(f.mask, W, H, [{ x, y }].concat(others.map((p) => ({ x: p.px, y: p.py }))));
+        if (!parts || parts.area < MIN_AREA) { fail(tag + ':split'); continue; }
+        const selfIdx = cy * W + cx;
+        if (f.mask[selfIdx] && !parts.mask[selfIdx]) { fail(tag + ':cut'); continue; }
+        reg = parts.mask;
+      }
       let bstart = null;
-      for (let yy = 1; yy < H - 1 && !bstart; yy++) for (let xx = 1; xx < W - 1; xx++) if (f.mask[yy * W + xx]) { bstart = [xx, yy]; break; }
+      for (let yy = 1; yy < H - 1 && !bstart; yy++) for (let xx = 1; xx < W - 1; xx++) if (reg[yy * W + xx]) { bstart = [xx, yy]; break; }
       if (!bstart) { fail(tag + ':bstart'); continue; }
-      const contour = mooreBoundary(f.mask, W, H, bstart);
+      const contour = mooreBoundary(reg, W, H, bstart);
       if (!contour || contour.length < 8) { fail(tag + ':bnd'); continue; }
       // у замкнутого контура первая точка == последняя: нулевая база DP схлопнет всё в линию
       const loop = (contour[contour.length - 1][0] === contour[0][0] && contour[contour.length - 1][1] === contour[0][1])
@@ -216,13 +258,76 @@ function traceInner(st, sx, sy, diag) {
   return null;
 }
 
-const data = JSON.parse(readFileSync(OSM, 'utf8'));
+const data = JSON.parse(readFileSync(process.env.TRACED || OSM, 'utf8'));
+
+// ---------- Раскладка готовых контуров по адресам (ADOPT=1) ----------
+// Один и тот же контур не должен достаться двум домам. Владельцем спорного контура
+// становится тот дом, который его реально оттрассировал (poly2) и чья точка внутрь
+// попадает; остальным адресам возвращается их исходный контур OSM (OSM_ORIG=файл).
+
+function pointInPoly(lat, lng, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const yi = poly[i][0], xi = poly[i][1], yj = poly[j][0], xj = poly[j][1];
+    if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function polyDist(lat, lng, poly) {
+  const m = 111320, k = Math.cos((lat * Math.PI) / 180);
+  let best = Infinity;
+  for (let i = 0; i < poly.length - 1; i++) {
+    const ax = (poly[i][1] - lng) * m * k, ay = (poly[i][0] - lat) * m;
+    const bx = (poly[i + 1][1] - lng) * m * k, by = (poly[i + 1][0] - lat) * m;
+    const dx = bx - ax, dy = by - ay;
+    const t = dx || dy ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy))) : 0;
+    best = Math.min(best, Math.hypot(ax + dx * t, ay + dy * t));
+  }
+  return best;
+}
+function adoptContours() {
+  const ORIG = process.env.OSM_ORIG
+    ? new Map(JSON.parse(readFileSync(process.env.OSM_ORIG, 'utf8')).buildings.map((b) => [b.id, b.poly]))
+    : new Map();
+  const groups = new Map();
+  for (const b of data.buildings) {
+    const k = JSON.stringify(b.poly2 || b.poly);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(b);
+  }
+  let dupGroups = 0, reverted = 0, noOrig = 0;
+  for (const v of groups.values()) {
+    if (v.length < 2) continue;
+    dupGroups++;
+    const fin = v[0].poly2 || v[0].poly;
+    const key = (b) => [b.poly2 ? 0 : 1, pointInPoly(b.lat, b.lng, fin) ? 0 : 1, polyDist(b.lat, b.lng, fin)];
+    v.sort((a, b) => { const A = key(a), B = key(b); return A[0] - B[0] || A[1] - B[1] || A[2] - B[2]; });
+    for (const b of v.slice(1)) {
+      const o = ORIG.get(b.id);
+      if (o?.length) { b.poly = o; delete b.poly2; reverted++; } else noOrig++;
+    }
+  }
+  let adopted = 0;
+  for (const b of data.buildings) if (b.poly2) { b.poly = b.poly2; delete b.poly2; adopted++; }
+  const left = new Map();
+  for (const b of data.buildings) {
+    const k = JSON.stringify(b.poly);
+    left.set(k, (left.get(k) || 0) + 1);
+  }
+  const stillDup = [...left.values()].filter((n) => n > 1).length;
+  const out = process.env.ADOPT_OUT || OSM;
+  if (!process.env.ADOPT_DRY) writeFileSync(out, JSON.stringify(data));
+  console.log('adopt: свежих контуров', adopted, '| разобрано групп-дублей', dupGroups,
+    '| вернули исходный OSM', reverted, noOrig ? `| без исходного ${noOrig}` : '',
+    '| осталось групп-дублей', stillDup, process.env.ADOPT_DRY ? '| (не записано)' : `| записано в ${out}`);
+}
 const limit = parseInt(process.argv[2] || '0');
 const DRY = process.env.DRY === '1';
 const list = limit ? data.buildings.slice(0, limit) : data.buildings;
 let ok = 0, failCnt = 0;
 const fails = [];
 const DBG = process.env.DBG_ADDR || '';
+if (process.env.ADOPT === '1') { adoptContours(); process.exit(0); }
 for (const b of list) {
   if (DBG && !(b.address || '').includes(DBG)) continue;
   const t = tileFor(b.lat, b.lng, Z);
@@ -230,7 +335,19 @@ for (const b of list) {
   if (!st) { failCnt++; fails.push([b.address, 'no tiles']); continue; }
   // координаты точки дома внутри сшивки
   const sx = t.px + PAD, sy = t.py + PAD;
-  const poly = trace(st, sx, sy);
+  // точки всех домов в этой сшивке — по ним режем слипшиеся пятна на отдельные адреса
+  const pts = [];
+  for (const o of data.buildings) {
+    const ot = tileFor(o.lat, o.lng, Z);
+    const dx = ot.x - t.x, dy = ot.y - t.y;
+    if (dx < -1 || dx > 1 || dy < -1 || dy > 1) continue;
+    const S = 256 + PAD * 2;
+    const px = dx * 256 + Math.round(ot.px) + PAD;
+    const py = dy * 256 + Math.round(ot.py) + PAD;
+    if (px < 2 || py < 2 || px >= S - 2 || py >= S - 2) continue;
+    pts.push({ id: o.id, px, py });
+  }
+  const poly = trace(st, sx, sy, b.id, pts);
   if (!poly.poly) { failCnt++; fails.push(b.address + ' [' + poly.diag.join(',') + ']'); if (DBG) console.log('FAIL', b.address, poly.diag); continue; }
   if (DBG) console.log('OK', b.address, 'вершин:', poly.poly.length);
   const P = poly.poly;
