@@ -5,3 +5,4 @@ dist/
 .env.local
 cf-token.txt
 cloudflare-login.txt
+gis-key.txt
